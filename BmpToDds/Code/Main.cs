@@ -7,6 +7,20 @@ using System.Threading.Tasks;
 
 namespace BmpToDds
 {
+    public class Pixel
+    {
+        public byte R { get; set; }
+        public byte G { get; set; }
+        public byte B { get; set; }
+
+        public Pixel(byte r, byte g, byte b)
+        {
+            R = r;
+            G = g;
+            B = b;
+        }
+    }
+
     public static class Program
     {
         static int ReadIntFrom(Stream s)
@@ -28,6 +42,13 @@ namespace BmpToDds
                 var headerSize = ReadIntFrom(stream);
                 var width = ReadIntFrom(stream);
                 var height = ReadIntFrom(stream);
+
+                if ((width % 4 != 0) || (height % 4 != 0))
+                {
+                    stream.Dispose();
+                    Console.WriteLine("Image dimensions are not a multiply of 4");
+                    return;
+                }
 
                 stream.Seek(54, SeekOrigin.Begin);
 
