@@ -9,11 +9,11 @@ namespace BmpToDds
 {
     public class Pixel
     {
-        public byte R { get; set; }
-        public byte G { get; set; }
-        public byte B { get; set; }
+        public int R { get; set; }
+        public int G { get; set; }
+        public int B { get; set; }
 
-        public Pixel(byte r, byte g, byte b)
+        public Pixel(int r, int g, int b)
         {
             R = r;
             G = g;
@@ -36,6 +36,8 @@ namespace BmpToDds
 
             var bmpBytes = File.ReadAllBytes(bmpFileName);
 
+
+
             using (var stream = new MemoryStream(bmpBytes))
             {
                 stream.Seek(14, SeekOrigin.Begin);
@@ -49,12 +51,32 @@ namespace BmpToDds
                     Console.WriteLine("Image dimensions are not a multiply of 4");
                     return;
                 }
+                var pixels = new Pixel[width, height];
 
                 stream.Seek(54, SeekOrigin.Begin);
 
-                var b = stream.ReadByte();
+                var w = 0;
+                var h = 0;
+                for (var i = 54; i < bmpBytes.Length; i += 3)
+                {
+                    var b = stream.ReadByte();
+                    var g = stream.ReadByte();
+                    var r = stream.ReadByte();
+                    var p = new Pixel(r, g, b);
 
-                Console.WriteLine($"b {b}");
+                    pixels[w, h] = p;
+
+                    w++;
+                    if (w == width)
+                    {
+                        w = 0;
+                        h++;
+                    }
+                }
+
+
+
+                Console.WriteLine($"pixels {w} {h}");
                 Console.ReadLine();
             }
             
