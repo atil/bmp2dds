@@ -17,6 +17,11 @@ namespace BmpToDds.Code
             return BitConverter.ToInt32(bytes, 0);
         }
 
+        public static void WriteInt(this Stream s, int arg)
+        {
+            s.Write(BitConverter.GetBytes(arg), 0 , 4);
+        }
+
         public static int ToInt(this BitArray bitArray)
         {
             var result = new int[1];
