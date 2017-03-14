@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace BmpToDds
+namespace BmpToDds.Code
 {
     public class Pixel
     {
@@ -21,6 +18,14 @@ namespace BmpToDds
             G = g;
             B = b;
             Sum = r + g + b;
+        }
+
+        public int ToRgb565()
+        {
+            var r = (R >> 3) << 11;
+            var g = (G >> 2) << 5;
+            var b = (B >> 3);
+            return r | g | b;
         }
 
         public static Pixel operator +(Pixel a, Pixel b)
@@ -85,8 +90,8 @@ namespace BmpToDds
     public class Texel
     {
         public readonly Pixel[] Pixels;
-        private readonly Pixel[] _palette;
-        private readonly BitArray _indexBits;
+        private readonly int _indexBits;
+        private readonly int _rgb565Bits;
 
         public Texel(Pixel[] pxls)
         {
@@ -97,21 +102,25 @@ namespace BmpToDds
             var min = Pixels.Aggregate((next, curr) => next.Sum > curr.Sum ? curr : next);
             var midLower = min + (max - min) / 3;
             var midHigher = min + (max - min) * 2 / 3;
-            _palette = new Pixel[]
+
+            var palette = new Pixel[]
             {
                 min, midLower, midHigher, max
             };
 
+            // Set anchor colors
+            _rgb565Bits = (min.ToRgb565() << 16) | max.ToRgb565();
+
             // Find palette indices for each pixel
-            _indexBits = new BitArray(32);
+            var indexBitArray = new BitArray(32);
             for (var i = 0; i < Pixels.Length; i++)
             {
                 var minDist = int.MaxValue;
                 var closestOnPalette = 0; // Index on palette
 
-                for (var j = 0; j < _palette.Length; j++)
+                for (var j = 0; j < palette.Length; j++)
                 {
-                    var dist = Math.Abs(_palette[j].Sum - Pixels[i].Sum);
+                    var dist = Math.Abs(palette[j].Sum - Pixels[i].Sum);
                     if (dist < minDist)
                     {
                         minDist = dist;
@@ -142,26 +151,24 @@ namespace BmpToDds
                         break;
                 }
 
-                _indexBits[i] = bit0;
-                _indexBits[i + 1] = bit1;
+                indexBitArray[2 * i] = bit0;
+                indexBitArray[2 * i + 1] = bit1;
             }
+
+            _indexBits = indexBitArray.ToInt();
         }
 
         public byte[] GetBytes()
         {
-            return new byte[0];
+            // Concat bytes
+            var anchorBytes = BitConverter.GetBytes(_rgb565Bits);
+            var indexBytes = BitConverter.GetBytes(_indexBits);
+            return anchorBytes.Concat(indexBytes).ToArray();
         }
     }
 
     public static class Program
     {
-        static int ReadIntFrom(Stream s)
-        {
-            var bytes = new byte[4];
-            s.Read(bytes, 0, 4);
-            return BitConverter.ToInt32(bytes, 0);
-        }
-
         static void Main(string[] args)
         {
             const string bmpFileName = "../Assets/example.bmp";
@@ -171,9 +178,9 @@ namespace BmpToDds
             {
                 // Read bmp properties
                 stream.Seek(14, SeekOrigin.Begin);
-                var headerSize = ReadIntFrom(stream);
-                var imageWidth = ReadIntFrom(stream);
-                var imageHeight = ReadIntFrom(stream);
+                var headerSize = stream.ReadInt();
+                var imageWidth = stream.ReadInt();
+                var imageHeight = stream.ReadInt();
 
                 // Discard errorneous input
                 if ((imageWidth % 4 != 0) || (imageHeight % 4 != 0))
@@ -202,6 +209,7 @@ namespace BmpToDds
                     w++;
                     if (w == imageWidth)
                     {
+
                         w = 0;
                         h++;
                     }
