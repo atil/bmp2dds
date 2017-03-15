@@ -20,12 +20,12 @@ namespace BmpToDds.Code
             Sum = r + g + b;
         }
 
-        public int ToRgb565()
+        public short ToRgb565()
         {
             var r = (R >> 3) << 11;
             var g = (G >> 2) << 5;
             var b = (B >> 3);
-            return r | g | b;
+            return (short)(r | g | b);
         }
 
         #region Operators
@@ -92,98 +92,18 @@ namespace BmpToDds.Code
         #endregion
     }
 
-    public class Texel
-    {
-        public readonly Pixel[] Pixels; // Exactly 16
-        private readonly int _indexBits;
-        private readonly int _rgb565Bits;
-
-        public Texel(Pixel[] pxls)
-        {
-            Pixels = pxls;
-
-            // Find 4 colors of palette
-            var max = Pixels.Aggregate((next, curr) => next.Sum < curr.Sum ? curr : next);
-            var min = Pixels.Aggregate((next, curr) => next.Sum > curr.Sum ? curr : next);
-            var midLower = min + (max - min) / 3;
-            var midHigher = min + (max - min) * 2 / 3;
-
-            var palette = new Pixel[]
-            {
-                min, midLower, midHigher, max
-            };
-
-            // Set anchor colors
-            _rgb565Bits = (min.ToRgb565() << 16) | max.ToRgb565();
-
-            // Find palette indices for each pixel
-            var indexBitArray = new BitArray(32);
-            for (var i = 0; i < Pixels.Length; i++)
-            {
-                var minDist = int.MaxValue;
-                var closestOnPalette = 0; // Index on palette
-
-                for (var j = 0; j < palette.Length; j++)
-                {
-                    var dist = Math.Abs(palette[j].Sum - Pixels[i].Sum);
-                    if (dist < minDist)
-                    {
-                        minDist = dist;
-                        closestOnPalette = j;
-                    }
-                }
-
-                // A whole lot smarter thing could be done here
-                var bit0 = false;
-                var bit1 = false;
-                switch (closestOnPalette)
-                {
-                    case 0:
-                        bit0 = false;
-                        bit1 = false;
-                        break;
-                    case 1:
-                        bit0 = false;
-                        bit1 = true;
-                        break;
-                    case 2:
-                        bit0 = true;
-                        bit1 = false;
-                        break;
-                    case 3:
-                        bit0 = true;
-                        bit1 = true;
-                        break;
-                }
-
-                indexBitArray[2 * i] = bit0;
-                indexBitArray[2 * i + 1] = bit1;
-            }
-
-            _indexBits = indexBitArray.ToInt();
-        }
-
-        public byte[] GetBytes()
-        {
-            // Concat bytes
-            var anchorBytes = BitConverter.GetBytes(_rgb565Bits);
-            var indexBytes = BitConverter.GetBytes(_indexBits);
-            return anchorBytes.Concat(indexBytes).ToArray();
-        }
-    }
-
     public static class Program
     {
         static void Main(string[] args)
         {
-            const string bmpFileName = "../Assets/example.bmp";
+            const string bmpFileName = "../Assets/example2.bmp";
             const string ddsFileName = "../Assets/dump2.dds";
 
             var bmpBytes = File.ReadAllBytes(bmpFileName);
             using (var stream = new MemoryStream(bmpBytes))
             {
                 // Read bmp properties
-                stream.Seek(14, SeekOrigin.Begin);
+                stream.Seek(14, SeekOrigin.Begin); // Begins at 14
                 var headerSize = stream.ReadInt();
                 var imageWidth = stream.ReadInt();
                 var imageHeight = stream.ReadInt();
@@ -191,6 +111,7 @@ namespace BmpToDds.Code
                 // Discard errorneous input
                 if ((imageWidth % 4 != 0) || (imageHeight % 4 != 0))
                 {
+                    // TODO: Discard also non-24bpp images
                     stream.Dispose();
                     Console.WriteLine("Image dimensions are not a multiply of 4");
                     return;
@@ -203,7 +124,6 @@ namespace BmpToDds.Code
                 var pixels = new Pixel[imageWidth, imageHeight];
                 var w = 0;
                 var h = 0;
-                var ii = 0;
                 for (var i = 54; i < bmpBytes.Length; i += 3)
                 {
                     var b = stream.ReadByte();
@@ -218,24 +138,6 @@ namespace BmpToDds.Code
                     {
                         w = 0;
                         h++;
-                    }
-                    ii = i;
-                }
-               
-                // Construct texels
-                var texels = new Texel[imageWidth / 4, imageHeight / 4];
-                for (var j = 0; j < imageHeight; j += 4)
-                {
-                    for (var i = 0; i < imageWidth; i += 4)
-                    {
-                        // 4x4 pixels => 1 texel
-                        texels[i / 4, j / 4] = new Texel(new Pixel[]
-                        {
-                            pixels[i, j], pixels[i + 1, j], pixels[i + 2, j], pixels[i + 3, j],
-                            pixels[i, j + 1], pixels[i + 1, j + 1], pixels[i + 2, j + 1], pixels[i + 3, j + 1],
-                            pixels[i, j + 2], pixels[i + 1, j + 2], pixels[i + 2, j + 2], pixels[i + 3, j + 2],
-                            pixels[i, j + 3], pixels[i + 1, j + 3], pixels[i + 2, j + 3], pixels[i + 3, j + 3],
-                        });
                     }
                 }
 
@@ -253,7 +155,7 @@ namespace BmpToDds.Code
                     fs.WriteInt(((imageWidth + 3) / 4) * 8); // Pitch or Linear size (yup that's the one)
                     fs.WriteInt(0); // Depth
                     fs.WriteInt(0); // Mipmap count
-                    for (int i = 0; i < 11; i++) // Reserved
+                    for (var i = 0; i < 11; i++) // Reserved
                     {
                         fs.WriteInt(0);
                     }
@@ -266,39 +168,26 @@ namespace BmpToDds.Code
                     fs.WriteInt(0x0000f800); // R bitmask
                     fs.WriteInt(0x000007e0); // G bitmask
                     fs.WriteInt(0x0000001f); // B bitmask
-                    fs.WriteInt(0); // A bitmask
+                    fs.WriteInt(0); // Alpha bitmask
                     fs.WriteInt(0x00001000); // Caps
                     fs.WriteInt(0); // Caps2
                     fs.WriteInt(0); // Caps3
                     fs.WriteInt(0); // Caps4
                     fs.WriteInt(0); // Reserved
 
-                    foreach (var texel in texels)
+                    foreach (var pixel in pixels)
                     {
-                        var b = texel.GetBytes();
-                        fs.Write(b, 0, b.Length);
+                        // Can't believe that all texel business is a lie...
+                        var pixelBytes = BitConverter.GetBytes(pixel.ToRgb565());
+                        fs.Write(pixelBytes, 0, pixelBytes.Length);
                     }
-                 
-                    // Mipmaps here?   
+
+                    // TODO: Mipmaps here? 
+                    // Lol nope
                 }
 
-                //Console.WriteLine($"pixels {w} {h}");
-                //Console.ReadLine();
             }
 
-
-            // We should have our image converted at this point
-            // Begin writing dds
-            //using (var fs = new FileStream("../Assets/out.dds", FileMode.OpenOrCreate))
-            //{
-            //    // Magic string
-            //    fs.WriteByte((byte)'D');
-            //    fs.WriteByte((byte)'D');
-            //    fs.WriteByte((byte)'S');
-            //    fs.WriteByte((byte)' ');
-
-            //    fs.WriteInt(124); // Header size
-            //}
 
         }
     }
