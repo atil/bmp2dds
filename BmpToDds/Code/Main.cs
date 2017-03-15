@@ -177,6 +177,7 @@ namespace BmpToDds.Code
         static void Main(string[] args)
         {
             const string bmpFileName = "../Assets/example.bmp";
+            const string ddsFileName = "../Assets/dump2.dds";
 
             var bmpBytes = File.ReadAllBytes(bmpFileName);
             using (var stream = new MemoryStream(bmpBytes))
@@ -220,19 +221,6 @@ namespace BmpToDds.Code
                     }
                     ii = i;
                 }
-
-                var c = 3;
-
-                for (int i = 0; i < imageWidth; i++)
-                {
-                    for (int j = 0; j < imageHeight; j++)
-                    {
-                        if (pixels[i, j] == null)
-                        {
-                            var a = 3;
-                        }
-                    }
-                }
                
                 // Construct texels
                 var texels = new Texel[imageWidth / 4, imageHeight / 4];
@@ -251,7 +239,7 @@ namespace BmpToDds.Code
                     }
                 }
 
-                using (var fs = new FileStream("../Assets/dump2.dds", FileMode.OpenOrCreate))
+                using (var fs = new FileStream(ddsFileName, FileMode.OpenOrCreate))
                 {
                     fs.WriteByte((byte)'D');
                     fs.WriteByte((byte)'D');
@@ -259,10 +247,10 @@ namespace BmpToDds.Code
                     fs.WriteByte((byte)' ');
 
                     fs.WriteInt(124); // Header size
-                    fs.WriteInt(0x000010f0); // Flags indicating what info is in the header (well...)
+                    fs.WriteInt(0x0000100f); // Flags indicating what info is in the header (well...)
                     fs.WriteInt(imageWidth); // Width
                     fs.WriteInt(imageHeight); // Height
-                    fs.WriteInt(8); // Pitch or Linear size (yup that's the one)
+                    fs.WriteInt(((imageWidth + 3) / 4) * 8); // Pitch or Linear size (yup that's the one)
                     fs.WriteInt(0); // Depth
                     fs.WriteInt(0); // Mipmap count
                     for (int i = 0; i < 11; i++) // Reserved
