@@ -105,12 +105,12 @@ namespace BmpToDds.Code
                 // Read bmp properties
                 stream.Seek(14, SeekOrigin.Begin); // Begins at 14
                 var headerSize = stream.ReadInt();
-                var imageWidth = stream.ReadInt();
-                var imageHeight = stream.ReadInt();
+                var bmpWidth = stream.ReadInt();
+                var bmpHeight = stream.ReadInt();
 
                 // Discard errorneous input
                 // TODO: Discard also non-24bpp images
-                if ((imageWidth % 4 != 0) || (imageHeight % 4 != 0))
+                if ((bmpWidth % 4 != 0) || (bmpHeight % 4 != 0))
                 {
                     stream.Dispose();
                     Console.WriteLine("Image dimensions are not a multiply of 4");
@@ -121,8 +121,14 @@ namespace BmpToDds.Code
                 stream.Seek(54, SeekOrigin.Begin);
 
                 // Read color data from bmp
-                var pixels = new Pixel[imageWidth, imageHeight];
-                var w = 0;
+                var pixels = new Pixel[bmpWidth, bmpHeight];
+
+                // BMP has its origin at lower-left
+                // To make it top-left, we invert .... *drumroll*
+                // WIDTH!
+                // Don't know why, but after trial and error this produced a meaningful thing
+                // It seems like BMP keeps things column-wise
+                var w = bmpWidth - 1;
                 var h = 0;
                 for (var i = 54; i < bmpBytes.Length; i += 3)
                 {
@@ -133,14 +139,15 @@ namespace BmpToDds.Code
 
                     pixels[w, h] = p;
 
-                    w++;
-                    if (w == imageWidth)
+                    h++; // Walk on height-first
+                    if (h == bmpHeight)
                     {
-                        w = 0;
-                        h++;
+                        h = 0;
+                        w--;
                     }
                 }
 
+                // Write DDS
                 using (var fs = new FileStream(ddsFileName, FileMode.OpenOrCreate))
                 {
                     fs.WriteByte((byte)'D');
@@ -150,9 +157,9 @@ namespace BmpToDds.Code
 
                     fs.WriteInt(124); // Header size
                     fs.WriteInt(0x0000100f); // Flags indicating what info is in the header (well...)
-                    fs.WriteInt(imageWidth); // Width
-                    fs.WriteInt(imageHeight); // Height
-                    fs.WriteInt(((imageWidth + 3) / 4) * 8); // Pitch or Linear size (yup that's the one)
+                    fs.WriteInt(bmpWidth); // Width
+                    fs.WriteInt(bmpHeight); // Height
+                    fs.WriteInt(((bmpWidth + 3) / 4) * 8); // Pitch or Linear size (yup that's the one)
                     fs.WriteInt(0); // Depth
                     fs.WriteInt(0); // Mipmap count
                     for (var i = 0; i < 11; i++) // Reserved
@@ -187,7 +194,6 @@ namespace BmpToDds.Code
                 }
 
             }
-
 
         }
     }
