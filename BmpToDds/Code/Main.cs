@@ -20,6 +20,13 @@ namespace BmpToDds.Code
             Sum = r + g + b;
         }
 
+        public Pixel(short rgb565)
+        {
+            R = rgb565 & 0xf800; // First 5 bits
+            G = rgb565 & 0x7e0; // Midd 6 bits
+            B = rgb565 & 0x1f; // Last 5 bits
+        }
+
         public short ToRgb565()
         {
             var r = (R >> 3) << 11; // First 5 bits
@@ -99,7 +106,8 @@ namespace BmpToDds.Code
             {
                 const string bmpFileName = "../Assets/example.bmp";
                 const string ddsFileName = "../Assets/dump2.dds";
-                Bmp2Dds(bmpFileName, ddsFileName);
+                //Bmp2Dds(bmpFileName, ddsFileName);
+                Dds2Bmp(ddsFileName, bmpFileName);
                 return;
             }
 
@@ -119,16 +127,20 @@ namespace BmpToDds.Code
             }
 
             var inputFileName = args[1];
+            var inputFileInfo = new FileInfo(inputFileName);
+            
             var outputFileName = args[2];
+            var outputFileInfo = new FileInfo(outputFileName);
 
             if (option == Bmp2DdsOp)
             {
+                Utility.Assert(inputFileInfo.Extension == "bmp", "Input must be bmp file");
+                Utility.Assert(outputFileInfo.Extension == "dds", "Output must be dds file");
                 Bmp2Dds(inputFileName, outputFileName);
             }
             else if (option == Dds2BmpOp)
             {
-                Console.WriteLine("Not implemented yet");
-                Console.ReadLine();
+                Dds2Bmp(inputFileName, outputFileName);
             }
         }
 
@@ -140,15 +152,24 @@ namespace BmpToDds.Code
                 // Read bmp properties
                 stream.Seek(14, SeekOrigin.Begin); // Begins at 14
                 var headerSize = stream.ReadInt();
-                var bmpWidth = stream.ReadInt();
+                var bmpWidth = stream.ReadInt(); // TODO: Is this short?
                 var bmpHeight = stream.ReadInt();
+                var numOfColorPlanes = stream.ReadShort();
+                var colorDepth = stream.ReadShort();
 
                 // Discard errorneous input
-                // TODO: Discard also non-24bpp images
                 if ((bmpWidth % 4 != 0) || (bmpHeight % 4 != 0))
                 {
                     stream.Dispose();
                     Console.WriteLine("Image dimensions are not a multiply of 4");
+                    return;
+                }
+
+                // Check 24bpp
+                if (colorDepth != 24)
+                {
+                    stream.Dispose();
+                    Console.WriteLine("BMP color depth must be 24");
                     return;
                 }
 
@@ -227,6 +248,42 @@ namespace BmpToDds.Code
                     // TODO: Mipmaps here? 
                     // Lol nope
                 }
+
+            }
+        }
+
+        static void Dds2Bmp(string ddsFileName, string bmpFileName)
+        {
+            var ddsBytes = File.ReadAllBytes(ddsFileName);
+            using (var stream = new MemoryStream(ddsBytes))
+            {
+                // We're only interested in width and height
+                stream.Seek(12, SeekOrigin.Begin);
+                var imageWidth = stream.ReadInt();
+                var imageHeight = stream.ReadInt();
+
+                stream.Seek(128, SeekOrigin.Begin); // Move to actual image data
+                var pixels = new Pixel[imageWidth, imageHeight];
+                var w = 0;
+                var h = 0;
+                while (stream.CanRead) // Read bytes till the end of file
+                {
+                    // Two bytes == 1 color (R5G5B5)
+                    var byte0 = stream.ReadByte();
+                    var byte1 = stream.ReadByte();
+
+                    var s = (short)(byte1 << 8 | byte0); 
+                    pixels[w, h] = new Pixel(s);
+
+                    w++;
+                    if (w == imageWidth)
+                    {
+                        w = 0;
+                        h++;
+                    }
+                }
+
+                // TODO: Write header here
 
             }
         }
