@@ -96,7 +96,7 @@ namespace BmpToDds.Code
     {
         static void Main(string[] args)
         {
-            const string bmpFileName = "../Assets/example2.bmp";
+            const string bmpFileName = "../Assets/example.bmp";
             const string ddsFileName = "../Assets/dump2.dds";
 
             var bmpBytes = File.ReadAllBytes(bmpFileName);
@@ -109,9 +109,9 @@ namespace BmpToDds.Code
                 var imageHeight = stream.ReadInt();
 
                 // Discard errorneous input
+                // TODO: Discard also non-24bpp images
                 if ((imageWidth % 4 != 0) || (imageHeight % 4 != 0))
                 {
-                    // TODO: Discard also non-24bpp images
                     stream.Dispose();
                     Console.WriteLine("Image dimensions are not a multiply of 4");
                     return;
@@ -177,7 +177,7 @@ namespace BmpToDds.Code
 
                     foreach (var pixel in pixels)
                     {
-                        // Can't believe that all texel business is a lie...
+                        // Can't believe that all 4x4 texel business is a lie...
                         var pixelBytes = BitConverter.GetBytes(pixel.ToRgb565());
                         fs.Write(pixelBytes, 0, pixelBytes.Length);
                     }
