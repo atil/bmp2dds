@@ -35,6 +35,11 @@ namespace BmpToDds.Code
             return (short)(r | g | b); // 16 bits in total, which is a short
         }
 
+        public byte[] ToRgb888()
+        {
+            return new[] {(byte) R, (byte) G, (byte) B};
+        }
+
         #region Operators
         public static Pixel operator +(Pixel a, Pixel b)
         {
@@ -104,8 +109,8 @@ namespace BmpToDds.Code
             // To speed up development
             if (args.Length == 0)
             {
-                const string bmpFileName = "../Assets/example.bmp";
-                const string ddsFileName = "../Assets/dump2.dds";
+                const string bmpFileName = "../Assets/dump.bmp";
+                const string ddsFileName = "../Assets/example.dds";
                 //Bmp2Dds(bmpFileName, ddsFileName);
                 Dds2Bmp(ddsFileName, bmpFileName);
                 return;
@@ -156,6 +161,12 @@ namespace BmpToDds.Code
                 var bmpHeight = stream.ReadInt();
                 var numOfColorPlanes = stream.ReadShort();
                 var colorDepth = stream.ReadShort();
+                var a1 = stream.ReadInt();
+                var a2 = stream.ReadInt();
+                var a3 = stream.ReadInt();
+                var a4 = stream.ReadInt();
+                var a5 = stream.ReadInt();
+                var a6 = stream.ReadInt();
 
                 // Discard errorneous input
                 if ((bmpWidth % 4 != 0) || (bmpHeight % 4 != 0))
@@ -266,13 +277,13 @@ namespace BmpToDds.Code
                 var pixels = new Pixel[imageWidth, imageHeight];
                 var w = 0;
                 var h = 0;
-                while (stream.CanRead) // Read bytes till the end of file
+                for (var i = 128; i < ddsBytes.Length; i+=2) // Start from end of header
                 {
                     // Two bytes == 1 color (R5G5B5)
                     var byte0 = stream.ReadByte();
                     var byte1 = stream.ReadByte();
 
-                    var s = (short)(byte1 << 8 | byte0); 
+                    var s = (short)(byte1 << 8 | byte0);
                     pixels[w, h] = new Pixel(s);
 
                     w++;
@@ -283,7 +294,35 @@ namespace BmpToDds.Code
                     }
                 }
 
-                // TODO: Write header here
+                // DDS reading done, write BMP
+                using (var outStream = new FileStream(bmpFileName, FileMode.OpenOrCreate))
+                {
+                    // Write header
+                    outStream.WriteByte((byte)'B');
+                    outStream.WriteByte((byte)'M');
+                    outStream.WriteInt(pixels.Length * 3); // Image data size
+                    outStream.WriteShort(0); // Reserved
+                    outStream.WriteShort(0); // Reserved
+                    outStream.WriteInt(0); // Should indicate the offset to actual image data
+
+                    outStream.WriteInt(40); // Header size
+                    outStream.WriteInt(imageWidth);
+                    outStream.WriteInt(imageHeight);
+                    outStream.WriteShort(1); // Plane count (always 1)
+                    outStream.WriteShort(24); // 24 bpp
+                    outStream.WriteInt(0); // Compression method. We don't use any
+                    outStream.WriteInt(0); // Image size. Docs says 0 can be used
+                    outStream.WriteInt(3779); // Pixel per meter (x)
+                    outStream.WriteInt(3779); // Pixel per meter (y)
+                    outStream.WriteInt(0); // Color palette count (default is 0)
+                    outStream.WriteInt(0); // Important color count (default is 0)
+
+                    foreach (var pixel in pixels)
+                    {
+                        var pixelBytes = pixel.ToRgb888();
+                        outStream.Write(pixelBytes, 0, pixelBytes.Length);
+                    }
+                }
 
             }
         }
