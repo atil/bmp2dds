@@ -3,6 +3,10 @@ using System.IO;
 
 namespace BmpToDds.Code
 {
+    // So this program either converts bmp to dds or vice versa
+    // These two processes are defined in functions below
+    // ... which are really basically parsing the input into a pixel matrix
+    // then deserializing the matrix into the output
     public static class Program
     {
         private const string Bmp2DdsOp = "-bmp2dds";
@@ -11,27 +15,25 @@ namespace BmpToDds.Code
         private static void Main(string[] args)
         {
             // To speed up development
-            if (args.Length == 0)
-            {
-                const string bmpFileName = "../Assets/example.bmp";
-                const string ddsFileName = "../Assets/dump.dds";
-                //Bmp2Dds(bmpFileName, ddsFileName);
-                Dds2Bmp(ddsFileName, bmpFileName);
-                return;
-            }
+            //if (args.Length == 0)
+            //{
+            //    const string bmpFileName = "../Assets/example.bmp";
+            //    const string ddsFileName = "../Assets/dump.dds";
+            //    //Bmp2Dds(bmpFileName, ddsFileName);
+            //    //Dds2Bmp(ddsFileName, bmpFileName);
+            //    return;
+            //}
 
             // Read cmdline args and make sure they are the things we want
             if (args.Length != 3)
             {
-                Console.WriteLine("Usage: <option> <input file> <output file>");
-                Console.ReadLine();
+                Console.WriteLine("Usage:BmpToDds.exe <option> <input file> <output file>");
                 return;
             }
             var option = args[0];
-            if (option != Bmp2DdsOp || option != Dds2BmpOp)
+            if (option != Bmp2DdsOp && option != Dds2BmpOp)
             {
                 Console.WriteLine("Invalid option. Use either -bmp2dds or -dds2bmp");
-                Console.ReadLine();
                 return;
             }
 
@@ -43,18 +45,21 @@ namespace BmpToDds.Code
 
             if (option == Bmp2DdsOp)
             {
-                Utility.Assert(inputFileInfo.Extension == "bmp", "Input must be bmp file");
-                Utility.Assert(outputFileInfo.Extension == "dds", "Output must be dds file");
+                Utility.Assert(inputFileInfo.Extension == ".bmp", "Input must be a bmp file");
+                Utility.Assert(outputFileInfo.Extension == ".dds", "Output must be a dds file");
                 Bmp2Dds(inputFileName, outputFileName);
             }
             else if (option == Dds2BmpOp)
             {
+                Utility.Assert(inputFileInfo.Extension == ".dds", "Input must be a dds file");
+                Utility.Assert(outputFileInfo.Extension == ".bmp", "Output must be a bmp file");
                 Dds2Bmp(inputFileName, outputFileName);
             }
         }
 
         private static void Bmp2Dds(string bmpFileName, string ddsFileName)
         {
+            // Read bmp
             var bmpBytes = File.ReadAllBytes(bmpFileName);
             using (var stream = new MemoryStream(bmpBytes))
             {
@@ -65,12 +70,6 @@ namespace BmpToDds.Code
                 var bmpHeight = stream.ReadInt();
                 var numOfColorPlanes = stream.ReadShort();
                 var colorDepth = stream.ReadShort();
-                var a1 = stream.ReadInt();
-                var a2 = stream.ReadInt();
-                var a3 = stream.ReadInt();
-                var a4 = stream.ReadInt();
-                var a5 = stream.ReadInt();
-                var a6 = stream.ReadInt();
 
                 // Discard errorneous input
                 if ((bmpWidth % 4 != 0) || (bmpHeight % 4 != 0))
@@ -216,7 +215,7 @@ namespace BmpToDds.Code
                     outStream.WriteShort(24); // 24 bpp
                     outStream.WriteInt(0); // Compression method. We don't use any
                     outStream.WriteInt(0); // Image size. Docs says 0 can be used
-                    outStream.WriteInt(3779); // Pixel per meter (x)
+                    outStream.WriteInt(3779); // Pixel per meter (x) (have no idea why is the number)
                     outStream.WriteInt(3779); // Pixel per meter (y)
                     outStream.WriteInt(0); // Color palette count (default is 0)
                     outStream.WriteInt(0); // Important color count (default is 0)
