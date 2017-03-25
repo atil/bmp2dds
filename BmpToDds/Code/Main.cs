@@ -178,13 +178,6 @@ namespace BmpToDds.Code
                         fs.Write(texelBytes, 0, texelBytes.Length);
                     }
 
-                    //foreach (var pixel in pixels)
-                    //{
-                    //    // Can't believe that all 4x4 texel business is a lie...
-                    //    var pixelBytes = BitConverter.GetBytes(pixel.ToRgb565());
-                    //    fs.Write(pixelBytes, 0, pixelBytes.Length);
-                    //}
-
                     // TODO: Mipmaps here? 
                     // Lol nope
                 }
@@ -199,24 +192,30 @@ namespace BmpToDds.Code
             {
                 // We're only interested in width and height
                 stream.Seek(12, SeekOrigin.Begin);
-                var imageWidth = stream.ReadInt();
-                var imageHeight = stream.ReadInt();
+                var ddsWidth = stream.ReadInt();
+                var ddsHeight = stream.ReadInt();
 
                 stream.Seek(128, SeekOrigin.Begin); // Move to actual image data
-                var pixels = new Pixel[imageWidth, imageHeight];
-                var w = imageWidth - 1;
+                var texels = new Texel[ddsWidth / 4, ddsHeight / 4];
+                //var pixels = new Pixel[ddsWidth, ddsHeight];
+                var w = ddsWidth - 1;
                 var h = 0;
-                for (var i = 128; i < ddsBytes.Length; i+=2) // Start from end of header
+                for (var i = 128; i < ddsBytes.Length; i+=64) // Start from end of header
                 {
                     // Two bytes == 1 color (R5G5B5)
-                    var byte0 = stream.ReadByte();
-                    var byte1 = stream.ReadByte();
+                    //var byte0 = stream.ReadByte();
+                    //var byte1 = stream.ReadByte();
+                    //var s = (short)(byte1 << 8 | byte0);
+                    //pixels[w, h] = new Pixel(s);
 
-                    var s = (short)(byte1 << 8 | byte0);
-                    pixels[w, h] = new Pixel(s);
+                    var anchor0 = stream.ReadShort();
+                    var anchor1 = stream.ReadShort();
+                    var colorIndices = stream.ReadInt();
+
+                    texels[w, h] = new Texel(anchor0, anchor1, colorIndices);
 
                     h++;
-                    if (h == imageHeight)
+                    if (h == ddsHeight)
                     {
                         h = 0;
                         w--;
@@ -229,14 +228,14 @@ namespace BmpToDds.Code
                     // Write header
                     outStream.WriteByte((byte)'B');
                     outStream.WriteByte((byte)'M');
-                    outStream.WriteInt(pixels.Length * 3); // Image data size
+                    outStream.WriteInt(texels.Length * 16); // Image data size
                     outStream.WriteShort(0); // Reserved
                     outStream.WriteShort(0); // Reserved
                     outStream.WriteInt(0); // Should indicate the offset to actual image data
 
                     outStream.WriteInt(40); // Header size
-                    outStream.WriteInt(imageWidth);
-                    outStream.WriteInt(imageHeight);
+                    outStream.WriteInt(ddsWidth);
+                    outStream.WriteInt(ddsHeight);
                     outStream.WriteShort(1); // Plane count (always 1)
                     outStream.WriteShort(24); // 24 bpp
                     outStream.WriteInt(0); // Compression method. We don't use any
@@ -246,11 +245,11 @@ namespace BmpToDds.Code
                     outStream.WriteInt(0); // Color palette count (default is 0)
                     outStream.WriteInt(0); // Important color count (default is 0)
 
-                    foreach (var pixel in pixels)
-                    {
-                        var pixelBytes = pixel.ToRgb888();
-                        outStream.Write(pixelBytes, 0, pixelBytes.Length);
-                    }
+                    //foreach (var pixel in pixels)
+                    //{
+                    //    var pixelBytes = pixel.ToRgb888();
+                    //    outStream.Write(pixelBytes, 0, pixelBytes.Length);
+                    //}
                 }
 
             }

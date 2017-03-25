@@ -78,6 +78,24 @@ namespace BmpToDds.Code
             _indexBits = indexBitArray.ToInt();
         }
 
+        public Texel(short anchor0, short anchor1, int indices)
+        {
+            // Construct palette
+            var c0 = new Pixel(anchor0);
+            var c1 = new Pixel(anchor1);
+            var c2 =  c0 * (2 / 3) + c1 * (1 / 3);
+            var c3 =  c0 * (1 / 3) + c1 * (2 / 3);
+
+            var indexBits = new BitArray(BitConverter.GetBytes(indices));
+            for (var i = 0; i < indexBits.Length; i+=2)
+            {
+                var b0 = indexBits[i];
+                var b1 = indexBits[i + 1];
+
+            }
+
+        }
+
         public byte[] GetBytes()
         {
             // Concat bytes
