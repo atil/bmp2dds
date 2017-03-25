@@ -14,12 +14,14 @@ namespace BmpToDds.Code
         public int R { get; }
         public int G { get; }
         public int B { get; }
+        public int Sum { get; }
 
         public Pixel(int r, int g, int b)
         {
             R = r;
             G = g;
             B = b;
+            Sum = R + G + B;
         }
 
         public Pixel(short rgb565)

@@ -38,6 +38,7 @@
   <ItemGroup>
     <Compile Include="Code\Main.cs" />
     <Compile Include="Code\Pixel.cs" />
+    <Compile Include="Code\Texel.cs" />
     <Compile Include="Code\Utility.cs" />
   </ItemGroup>
   <ItemGroup>

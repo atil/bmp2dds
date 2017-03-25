@@ -15,14 +15,14 @@ namespace BmpToDds.Code
         private static void Main(string[] args)
         {
             // To speed up development
-            //if (args.Length == 0)
-            //{
-            //    const string bmpFileName = "../Assets/example.bmp";
-            //    const string ddsFileName = "../Assets/dump.dds";
-            //    //Bmp2Dds(bmpFileName, ddsFileName);
-            //    //Dds2Bmp(ddsFileName, bmpFileName);
-            //    return;
-            //}
+            if (args.Length == 0)
+            {
+                const string bmpFileName = "../Assets/example.bmp";
+                const string ddsFileName = "../Assets/dump.dds";
+                Bmp2Dds(bmpFileName, ddsFileName);
+                //Dds2Bmp(ddsFileName, bmpFileName);
+                return;
+            }
 
             // Read cmdline args and make sure they are the things we want
             if (args.Length != 3)
@@ -117,6 +117,23 @@ namespace BmpToDds.Code
                     }
                 }
 
+                // Construct texels
+                var texels = new Texel[bmpWidth / 4, bmpHeight / 4];
+                for (var j = 0; j < bmpHeight; j += 4)
+                {
+                    for (var i = 0; i < bmpWidth; i += 4)
+                    {
+                        // 4x4 pixels => 1 texel
+                        texels[i / 4, j / 4] = new Texel(new Pixel[]
+                        {
+                            pixels[i, j], pixels[i + 1, j], pixels[i + 2, j], pixels[i + 3, j],
+                            pixels[i, j + 1], pixels[i + 1, j + 1], pixels[i + 2, j + 1], pixels[i + 3, j + 1],
+                            pixels[i, j + 2], pixels[i + 1, j + 2], pixels[i + 2, j + 2], pixels[i + 3, j + 2],
+                            pixels[i, j + 3], pixels[i + 1, j + 3], pixels[i + 2, j + 3], pixels[i + 3, j + 3],
+                        });
+                    }
+                }
+
                 // Write DDS
                 using (var fs = new FileStream(ddsFileName, FileMode.OpenOrCreate))
                 {
@@ -126,7 +143,7 @@ namespace BmpToDds.Code
                     fs.WriteByte((byte)' ');
 
                     fs.WriteInt(124); // Header size
-                    fs.WriteInt(0x0000100f); // Flags indicating what info is in the header (well...)
+                    fs.WriteInt(0x00001007); // Flags indicating what info is in the header (well...)
                     fs.WriteInt(bmpWidth); // Width
                     fs.WriteInt(bmpHeight); // Height
                     fs.WriteInt(((bmpWidth + 3) / 4) * 8); // Pitch or Linear size (yup that's the one)
@@ -139,12 +156,15 @@ namespace BmpToDds.Code
 
                     // Pixelformat
                     fs.WriteInt(0x00000020); // Size
-                    fs.WriteInt(0x00000040); // Flags about who's in here
-                    fs.WriteInt(0); // FourCC (don't know what this is)
-                    fs.WriteInt(0x00000010); // RGB bit count
-                    fs.WriteInt(0x0000f800); // R bitmask
-                    fs.WriteInt(0x000007e0); // G bitmask
-                    fs.WriteInt(0x0000001f); // B bitmask
+                    fs.WriteInt(0x00000004); // Flags about who's in here
+                    fs.WriteByte((byte)'D');
+                    fs.WriteByte((byte)'X');
+                    fs.WriteByte((byte)'T');
+                    fs.WriteByte((byte)'1');
+                    fs.WriteInt(0); // RGB bit count
+                    fs.WriteInt(0); // R bitmask
+                    fs.WriteInt(0); // G bitmask
+                    fs.WriteInt(0); // B bitmask
                     fs.WriteInt(0); // Alpha bitmask
                     fs.WriteInt(0x00001000); // Caps
                     fs.WriteInt(0); // Caps2
@@ -152,12 +172,18 @@ namespace BmpToDds.Code
                     fs.WriteInt(0); // Caps4
                     fs.WriteInt(0); // Reserved
 
-                    foreach (var pixel in pixels)
+                    foreach (var texel in texels)
                     {
-                        // Can't believe that all 4x4 texel business is a lie...
-                        var pixelBytes = BitConverter.GetBytes(pixel.ToRgb565());
-                        fs.Write(pixelBytes, 0, pixelBytes.Length);
+                        var texelBytes = texel.GetBytes();
+                        fs.Write(texelBytes, 0, texelBytes.Length);
                     }
+
+                    //foreach (var pixel in pixels)
+                    //{
+                    //    // Can't believe that all 4x4 texel business is a lie...
+                    //    var pixelBytes = BitConverter.GetBytes(pixel.ToRgb565());
+                    //    fs.Write(pixelBytes, 0, pixelBytes.Length);
+                    //}
 
                     // TODO: Mipmaps here? 
                     // Lol nope
