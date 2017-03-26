@@ -24,10 +24,18 @@ namespace BmpToDds.Code
             Sum = R + G + B;
         }
 
+        public Pixel(Pixel p)
+        {
+            R = p.R;
+            G = p.G;
+            B = p.B;
+            Sum = R + G + B;
+        }
+
         public Pixel(short rgb565)
         {
-            R = rgb565 & 0xf800; // First 5 bits
-            G = rgb565 & 0x7e0; // Midd 6 bits
+            R = (rgb565 & 0xf800) >> 11; // First 5 bits
+            G = (rgb565 & 0x7e0) >> 5; // Mid 6 bits
             B = rgb565 & 0x1f; // Last 5 bits
 
             // Extrapolate to 8 bits each
@@ -38,6 +46,8 @@ namespace BmpToDds.Code
             R = (int) (R / 32f * 255);
             G = (int) (G / 64f * 255);
             B = (int) (B / 32f * 255);
+            Sum = R + G + B;
+
         }
 
         public short ToRgb565()
@@ -69,6 +79,11 @@ namespace BmpToDds.Code
         public static Pixel operator *(Pixel a, int i)
         {
             return new Pixel(a.R * i, a.G * i, a.B * i);
+        }
+
+        public static Pixel operator *(Pixel a, float f)
+        {
+            return new Pixel((int)(a.R * f), (int)(a.G * f), (int)(a.B * f));
         }
 
         public static Pixel operator /(Pixel a, int i)

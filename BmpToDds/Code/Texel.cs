@@ -80,20 +80,51 @@ namespace BmpToDds.Code
 
         public Texel(short anchor0, short anchor1, int indices)
         {
+            // TODO: Transparency is ignored
+
             // Construct palette
             var c0 = new Pixel(anchor0);
             var c1 = new Pixel(anchor1);
-            var c2 =  c0 * (2 / 3) + c1 * (1 / 3);
-            var c3 =  c0 * (1 / 3) + c1 * (2 / 3);
+            var c2 = c0 * (2f / 3) + c1 * (1f / 3);
+            var c3 = c0 * (1f / 3) + c1 * (2f / 3);
 
+            var palette = new Pixel[]
+            {
+                c0, c1, c2, c3
+            };
+
+            // Set pixels according to the indices
+            var pixels = new List<Pixel>();
             var indexBits = new BitArray(BitConverter.GetBytes(indices));
-            for (var i = 0; i < indexBits.Length; i+=2)
+            for (var i = 0; i < indexBits.Length; i += 2)
             {
                 var b0 = indexBits[i];
                 var b1 = indexBits[i + 1];
 
+                // Doing the naive and sure way
+                // Bit shifting thing should be done here but...
+                var paletteIndex = 0;
+                if (b0 && b1)
+                {
+                    paletteIndex = 0;
+                }
+                else if (b0 && !b1)
+                {
+                    paletteIndex = 1;
+                }
+                else if (!b0 && !b1)
+                {
+                    paletteIndex = 2;
+                }
+                else if (!b0 && !b1)
+                {
+                    paletteIndex = 3;
+                }
+
+                pixels.Add(palette[paletteIndex]);
             }
 
+            Pixels = pixels.ToArray();
         }
 
         public byte[] GetBytes()
@@ -103,5 +134,18 @@ namespace BmpToDds.Code
             var indexBytes = BitConverter.GetBytes(_indexBits);
             return anchorBytes.Concat(indexBytes).ToArray();
         }
+
+        public byte[] GetRgbBytes()
+        {
+            // Concat all pixels' rgb888 bytes
+            var retVal = new List<byte>();
+            foreach (var pixel in Pixels)
+            {
+                retVal = retVal.Concat(pixel.ToRgb888()).ToList();
+            }
+
+            return retVal.ToArray();
+        }
+
     }
 }

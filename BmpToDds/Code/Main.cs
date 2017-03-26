@@ -15,14 +15,14 @@ namespace BmpToDds.Code
         private static void Main(string[] args)
         {
             // To speed up development
-            if (args.Length == 0)
-            {
-                const string bmpFileName = "../Assets/example.bmp";
-                const string ddsFileName = "../Assets/dump.dds";
-                Bmp2Dds(bmpFileName, ddsFileName);
-                //Dds2Bmp(ddsFileName, bmpFileName);
-                return;
-            }
+            //if (args.Length == 0)
+            //{
+            //    const string bmpFileName = "../Assets/example2.bmp";
+            //    const string ddsFileName = "../Assets/dump2.dds";
+            //    //Bmp2Dds(bmpFileName, ddsFileName);
+            //    //Dds2Bmp(ddsFileName, bmpFileName);
+            //    return;
+            //}
 
             // Read cmdline args and make sure they are the things we want
             if (args.Length != 3)
@@ -135,47 +135,47 @@ namespace BmpToDds.Code
                 }
 
                 // Write DDS
-                using (var fs = new FileStream(ddsFileName, FileMode.OpenOrCreate))
+                using (var outStream = new FileStream(ddsFileName, FileMode.Create))
                 {
-                    fs.WriteByte((byte)'D');
-                    fs.WriteByte((byte)'D');
-                    fs.WriteByte((byte)'S');
-                    fs.WriteByte((byte)' ');
+                    outStream.WriteByte((byte)'D');
+                    outStream.WriteByte((byte)'D');
+                    outStream.WriteByte((byte)'S');
+                    outStream.WriteByte((byte)' ');
 
-                    fs.WriteInt(124); // Header size
-                    fs.WriteInt(0x00001007); // Flags indicating what info is in the header (well...)
-                    fs.WriteInt(bmpWidth); // Width
-                    fs.WriteInt(bmpHeight); // Height
-                    fs.WriteInt(((bmpWidth + 3) / 4) * 8); // Pitch or Linear size (yup that's the one)
-                    fs.WriteInt(0); // Depth
-                    fs.WriteInt(0); // Mipmap count
+                    outStream.WriteInt(124); // Header size
+                    outStream.WriteInt(0x00001007); // Flags indicating what info is in the header (well...)
+                    outStream.WriteInt(bmpWidth); // Width
+                    outStream.WriteInt(bmpHeight); // Height
+                    outStream.WriteInt(((bmpWidth + 3) / 4) * 8); // Pitch or Linear size (yup that's the one)
+                    outStream.WriteInt(0); // Depth
+                    outStream.WriteInt(0); // Mipmap count
                     for (var i = 0; i < 11; i++) // Reserved
                     {
-                        fs.WriteInt(0);
+                        outStream.WriteInt(0);
                     }
 
                     // Pixelformat
-                    fs.WriteInt(0x00000020); // Size
-                    fs.WriteInt(0x00000004); // Flags about who's in here
-                    fs.WriteByte((byte)'D');
-                    fs.WriteByte((byte)'X');
-                    fs.WriteByte((byte)'T');
-                    fs.WriteByte((byte)'1');
-                    fs.WriteInt(0); // RGB bit count
-                    fs.WriteInt(0); // R bitmask
-                    fs.WriteInt(0); // G bitmask
-                    fs.WriteInt(0); // B bitmask
-                    fs.WriteInt(0); // Alpha bitmask
-                    fs.WriteInt(0x00001000); // Caps
-                    fs.WriteInt(0); // Caps2
-                    fs.WriteInt(0); // Caps3
-                    fs.WriteInt(0); // Caps4
-                    fs.WriteInt(0); // Reserved
+                    outStream.WriteInt(0x00000020); // Size
+                    outStream.WriteInt(0x00000004); // Flags about who's in here
+                    outStream.WriteByte((byte)'D');
+                    outStream.WriteByte((byte)'X');
+                    outStream.WriteByte((byte)'T');
+                    outStream.WriteByte((byte)'1');
+                    outStream.WriteInt(0); // RGB bit count
+                    outStream.WriteInt(0); // R bitmask
+                    outStream.WriteInt(0); // G bitmask
+                    outStream.WriteInt(0); // B bitmask
+                    outStream.WriteInt(0); // Alpha bitmask
+                    outStream.WriteInt(0x00001000); // Caps
+                    outStream.WriteInt(0); // Caps2
+                    outStream.WriteInt(0); // Caps3
+                    outStream.WriteInt(0); // Caps4
+                    outStream.WriteInt(0); // Reserved
 
                     foreach (var texel in texels)
                     {
                         var texelBytes = texel.GetBytes();
-                        fs.Write(texelBytes, 0, texelBytes.Length);
+                        outStream.Write(texelBytes, 0, texelBytes.Length);
                     }
 
                     // TODO: Mipmaps here? 
@@ -197,25 +197,21 @@ namespace BmpToDds.Code
 
                 stream.Seek(128, SeekOrigin.Begin); // Move to actual image data
                 var texels = new Texel[ddsWidth / 4, ddsHeight / 4];
-                //var pixels = new Pixel[ddsWidth, ddsHeight];
-                var w = ddsWidth - 1;
+                var w = ddsWidth / 4 - 1;
                 var h = 0;
-                for (var i = 128; i < ddsBytes.Length; i+=64) // Start from end of header
+                for (var i = 128 /* Start from end of header */; 
+                    i < ddsBytes.Length; 
+                    i+=8 /* Each texel is 8 bytes long */)
                 {
-                    // Two bytes == 1 color (R5G5B5)
-                    //var byte0 = stream.ReadByte();
-                    //var byte1 = stream.ReadByte();
-                    //var s = (short)(byte1 << 8 | byte0);
-                    //pixels[w, h] = new Pixel(s);
-
                     var anchor0 = stream.ReadShort();
                     var anchor1 = stream.ReadShort();
                     var colorIndices = stream.ReadInt();
 
                     texels[w, h] = new Texel(anchor0, anchor1, colorIndices);
 
+                    // This is a bit confusing, but it seems to work
                     h++;
-                    if (h == ddsHeight)
+                    if (h == ddsHeight / 4)
                     {
                         h = 0;
                         w--;
@@ -223,7 +219,7 @@ namespace BmpToDds.Code
                 }
 
                 // DDS reading done, write BMP
-                using (var outStream = new FileStream(bmpFileName, FileMode.OpenOrCreate))
+                using (var outStream = new FileStream(bmpFileName, FileMode.Create))
                 {
                     // Write header
                     outStream.WriteByte((byte)'B');
@@ -245,11 +241,22 @@ namespace BmpToDds.Code
                     outStream.WriteInt(0); // Color palette count (default is 0)
                     outStream.WriteInt(0); // Important color count (default is 0)
 
-                    //foreach (var pixel in pixels)
-                    //{
-                    //    var pixelBytes = pixel.ToRgb888();
-                    //    outStream.Write(pixelBytes, 0, pixelBytes.Length);
-                    //}
+                    // Writing pixel-by-pixel, starting from top-left
+                    // Find which texel harbors the pixel we wanna write,
+                    // then extract the pixel from "t.Pixels[]"
+                    for (var i = 0; i < ddsWidth; i++)
+                    {
+                        for (var j = 0; j < ddsHeight; j++)
+                        {
+                            var texelX = i / 4;
+                            var texelY = j / 4;
+                            var pixelX = i % 4;
+                            var pixelY = j % 4;
+
+                            var pixel = texels[texelX, texelY].Pixels[pixelY * 4 + pixelX];
+                            outStream.Write(pixel.ToRgb888(), 0, 3);
+                        }
+                    }
                 }
 
             }
