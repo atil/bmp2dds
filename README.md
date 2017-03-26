@@ -1,3 +1,3 @@
-#BMP2DDS
+# BMP2DDS
 
-It's a small texture format converter done for practice purposes
+A small texture format converter done for practice purposes.
